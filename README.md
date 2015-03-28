@@ -4,14 +4,17 @@ Downloads historical data from interactive brokers and builds a data file useful
 
 By [RobustTechHouse](http://robusttechhouse.com) http://robusttechhouse.com
 
-##Output Format##
-Data files are generated in desired path in reverse chronological order eg
+##Java Logic##
+The Java class generates in desired path a series of data files in reverse chronological order eg
   	
   	1.txt => most recent data
   	
   	2.txt => next most recent data
   	
   	... etc
+
+##Python Logic##
+The Python script takes the Java class output files and creates one contiguous data file in chronological order
 
 
 ##Useful References##
