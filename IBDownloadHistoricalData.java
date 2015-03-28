@@ -1,6 +1,3 @@
-/* Copyright (C) 2013 Interactive Brokers LLC. All rights reserved.  This code is subject to the terms
- * and conditions of the IB API Non-Commercial License or the IB API Commercial License, as applicable. */
-
 package IBDownloadHistoricalData;
 
 import com.ib.client.AnyWrapperMsgGenerator;
@@ -18,74 +15,199 @@ import com.ib.client.Util;
 import com.ib.client.ComboLeg;
 import java.util.Vector;
 import java.io.*;
+import java.util.Date;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.lang.Thread;
 
 class IBDownloadHistoricalData  implements EWrapper {
 
-    private EClientSocket   m_client = new EClientSocket( this);
-    private FileLog     m_tickers; //= new FileLog("ServerData.txt");
-    private FileLog     m_TWS = new FileLog("ServerResponses.txt");
-    private FileLog     m_errors = new FileLog("ServerErrors.txt");
+    private EClientSocket   mClient = new EClientSocket( this);
+    private FileLog     mDataFile;
+    private FileLog     mServerResponsesLog = new FileLog("ServerResponses.txt");
+    private FileLog     mServerErrorsLog = new FileLog("ServerErrors.txt");
     
-	private Contract cont =  new Contract(0, "USD", "CASH", "",
+	//change this to the desired path
+	private String 		mDataPath = "Data/CAD/";
+	//change this to the desired contract
+	private Contract mContract =  new Contract(0, "USD", "CASH", "",
                     0, "", "",
                     "IDEALPRO", "CAD", "", "",
                     new Vector<ComboLeg>(), "IDEALPRO", false,
                     "", "");
-
-	private String LastDateTime = "20150327 00:00:00";
-					
-	// This method is called to start the application
+	// change this between BID and ASK to get different fields
+	private String mRequestField = "BID";
+	// change this to tweak how long to wait for data to come in
+	private int mDataWaitTimeSeconds = 60; 
+	
+	private boolean mIsThisRequestFinished = false;
+	private Date mCurrRequestDateTime = null;
+				
     public static void main (String args[]) {
 		System.out.println("Starting IBDownloadHistoricalData");
 		IBDownloadHistoricalData downloader = new IBDownloadHistoricalData();
 		downloader.run();
     }
 
+	private Date getLatestDownloadDate() {
+		//the day before at 12midnight
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(new Date());
+		cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+		cal.add(Calendar.DATE, -1);
+		Date date1DayBefore = cal.getTime();
+		return date1DayBefore;
+	}
+	
+	private Date getFirstDownloadDate() {
+		Calendar cal = Calendar.getInstance();
+		cal.set(2007, 6, 1, 0, 0);
+		Date d = cal.getTime();
+		return d;
+	}
+	
 	void run() {
 		connect();
-		requestHistoricalData();
+		long firstDownloadDateSeconds = getFirstDownloadDate().getTime();
 		
-		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-		try {
-			br.readLine();
-		} catch (Exception e) {
-			System.err.println(e);
-		} finally {
-			disconnect();
-			m_tickers.close();
-			m_TWS.close();
-			m_errors.close();
+		//loop until we are done with all requests
+		while (true) {
+		
+			//do one request, loop here until we are done or exceed time
+			Date startTime = new Date();
+			mIsThisRequestFinished = false;
+			requestHistoricalData();
+			while (!mIsThisRequestFinished) {
+				try {
+					Thread.sleep(5000);
+				} catch (Exception e) {
+					System.err.println(e);
+				}
+				Date currTime = new Date();
+				long timediffSeconds = (currTime.getTime() - startTime.getTime())/1000L;
+				
+				//waited too long break out and try again
+				if (timediffSeconds > mDataWaitTimeSeconds) {
+					break;
+				}
+			}
+			
+			if (!mIsThisRequestFinished) {
+				System.out.println ("Failed to finish current request " + mCurrRequestDateTime);
+				//TODO delete the latest file so we can try again
+			}
+			
+			if (firstDownloadDateSeconds > mCurrRequestDateTime.getTime()) {
+				//this actually means we finished all the downloading
+				break;
+			}
+			
+			//force sleep 20 seconds to slow down requests to avoid IB pacing constraints
+			try {
+					Thread.sleep(20000);
+				} catch (Exception e) {
+					System.err.println(e);
+			}
+			
 		}
 		
+		disconnect();
+		if (mDataFile != null) {
+			mDataFile.close();
+		}
+		mServerResponsesLog.close();
+		mServerErrorsLog.close();
 	}
 	
 	void connect() {
 		//connect localhost port 7496
-		m_client.eConnect("", 7496, 0);
-        if (m_client.isConnected()) {
-            m_TWS.add("Connected to Tws server version " +
-                       m_client.serverVersion() + " at " +
-                       m_client.TwsConnectionTime());
+		mClient.eConnect("", 7496, 0);
+        if (mClient.isConnected()) {
+            mServerResponsesLog.add("Connected to Tws server version " +
+                       mClient.serverVersion() + " at " +
+                       mClient.TwsConnectionTime());
         }
     }
 
     void disconnect() {
-        m_client.eDisconnect();
+        mClient.eDisconnect();
     }
 
     void requestHistoricalData() {
-		//open path, find newest file, read first line, take the last and request, write new file
-		//how to find newest file
-		//how to read first line
+		//TODO if file is not there, use current datetime
+	
+		File latestFile = lastFileModified(mDataPath);
+		mCurrRequestDateTime = getFirstDateTime(latestFile);
 		
-		//Duration String "1 D", "14400 S"
-		m_client.reqHistoricalData( 0, cont,
-									"20141225 12:00:00", "14400 S",
-                                    "1 min", "BID",
+		String latestFilePath = latestFile.toString();
+		String latestFileName = latestFile.getName();
+		
+		int index = latestFileName.indexOf(".");
+		String fileNameSubstring = latestFileName.substring(0, index);
+		int num = Integer.parseInt(fileNameSubstring);
+
+		mDataFile = new FileLog(mDataPath + String.format("%d.txt", num+1));
+		
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd hh:mm:ss");
+		String requestDateTimeStr = formatter.format(mCurrRequestDateTime);
+		
+		System.out.println(String.format("Send Historical Data Request For contract=%s requestDateTimeStr=%s requestField=%s", mContract.m_currency, requestDateTimeStr, mRequestField));
+		mClient.reqHistoricalData( 0, mContract,
+									requestDateTimeStr, "14400 S",
+                                    "1 min", mRequestField,
                                     1, 1);
-									
+											
     }
 
+	public static Date getFirstDateTime(File file) {
+		try {		
+			BufferedReader br = new BufferedReader(new FileReader(file));
+			String line = br.readLine();
+			int index = line.indexOf("date = ");
+			
+			if (index < 1) {
+				System.err.println("Failed to parse out date from first line of " + file.toPath());
+				return null;
+			}
+
+			String dateTimeString = line.substring(index+7, index + 25); //between these indices are the datetime numbers eg 20141225 01:00:00
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd hh:mm:ss");
+			Date parsedDate = formatter.parse(dateTimeString);
+			
+			return parsedDate;
+			
+		} catch (Exception e) {
+			System.err.println(e);
+			return null;
+		}
+	}
+	
+	public static File lastFileModified(String dir) {
+		File fl = new File(dir);
+		File[] files = fl.listFiles(new FileFilter() {          
+			public boolean accept(File file) {
+				return file.isFile();
+			}
+			});
+		if (files.length == 0) {
+			return null;
+		}
+		
+		long lastMod = Long.MIN_VALUE;
+		File choice = null;
+		for (File file : files) {
+			if (file.lastModified() > lastMod) {
+				choice = file;
+				lastMod = file.lastModified();
+			}
+		}
+		return choice;
+	}
+	
     public void tickPrice( int tickerId, int field, double price, int canAutoExecute) {
     }
 
@@ -157,7 +279,7 @@ class IBDownloadHistoricalData  implements EWrapper {
     public void nextValidId( int orderId) {
         // received next valid order id
     	String msg = EWrapperMsgGenerator.nextValidId( orderId);
-        m_TWS.add(msg) ;
+        mServerResponsesLog.add(msg) ;
     }
 
     public void error(Exception ex) {
@@ -165,12 +287,12 @@ class IBDownloadHistoricalData  implements EWrapper {
 
     public void error( String str) {
     	String msg = AnyWrapperMsgGenerator.error(str);
-        m_errors.add( msg);
+        mServerErrorsLog.add( msg);
     }
 
     public void error( int id, int errorCode, String errorMsg) {
     	String msg = AnyWrapperMsgGenerator.error(id, errorCode, errorMsg);
-        m_errors.add( msg);
+        mServerErrorsLog.add( msg);
     }
 
     public void connectionClosed() {
@@ -201,7 +323,12 @@ class IBDownloadHistoricalData  implements EWrapper {
     public void historicalData(int reqId, String date, double open, double high, double low,
                                double close, int volume, int count, double WAP, boolean hasGaps) {
         String msg = EWrapperMsgGenerator.historicalData(reqId, date, open, high, low, close, volume, count, WAP, hasGaps);
-    	m_tickers.add( msg );
+		if (msg.toUpperCase().contains("FINISHED")) {
+			mIsThisRequestFinished = true;
+		}
+		else {
+			mDataFile.add( msg );
+		}
     }
 	
 	public void realtimeBar(int reqId, long time, double open, double high, double low, double close, long volume, double wap, int count) {
@@ -242,8 +369,10 @@ class IBDownloadHistoricalData  implements EWrapper {
 	
 	class FileLog {
 		PrintWriter writer = null;
+		public String mFilePath;
 	
 		public FileLog(String filePath) {
+			mFilePath = filePath;
 			try {
 				writer = new PrintWriter(new BufferedWriter(new FileWriter(filePath, true)));
 			}catch (Exception e) {
@@ -252,14 +381,8 @@ class IBDownloadHistoricalData  implements EWrapper {
 		}
 		
 		public void add(String msg) {
+			//TODO. Prefix current timestamp
 			writer.write(msg + "\n");
-		}
-		
-		public void addText(String msg) {
-			add(msg);
-		}
-		
-		public void clear() {
 		}
 		
 		public void close() {

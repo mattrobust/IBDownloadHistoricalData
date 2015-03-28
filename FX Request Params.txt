@@ -23,6 +23,8 @@ What to Show: BID/ASK
 Regular Trading Hours: 1
 Date Format Style: 1
 
+//Duration String "1 D", "14400 S"
+
 ===
 GitHub
 https://guides.github.com/activities/hello-world/
