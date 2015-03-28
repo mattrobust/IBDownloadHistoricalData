@@ -381,8 +381,9 @@ class IBDownloadHistoricalData  implements EWrapper {
 		}
 		
 		public void add(String msg) {
-			//TODO. Prefix current timestamp
-			writer.write(msg + "\n");
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd hh:mm:ss");
+			String nowDateTimeStr = formatter.format(new Date());
+			writer.write(nowDateTimeStr + " " + msg + "\n");
 		}
 		
 		public void close() {
