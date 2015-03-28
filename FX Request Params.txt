@@ -32,6 +32,7 @@ One to combine
 
 ===
 Later also support saving live data. 
+For now, just historical
 
 ===
 Actual:
