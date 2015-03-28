@@ -186,7 +186,7 @@ class IBDownloadHistoricalData  implements EWrapper {
 		
 		System.out.println(String.format("Send Historical Data Request For contract=%s requestDateTimeStr=%s requestField=%s", mContract.m_currency, requestDateTimeStr, mRequestField));
 		mClient.reqHistoricalData( 0, mContract,
-									requestDateTimeStr, "1 D", //request in 4 hrs blocks
+									requestDateTimeStr, "1 D", //request in 1 day blocks
                                     "1 min", mRequestField,
                                     1, 1);
 											
