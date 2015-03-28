@@ -21,6 +21,31 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.lang.Thread;
 
+/*
+	Historical Data Limitations: https://www.interactivebrokers.com/en/software/api/apiguide/tables/historical_data_limitations.htm
+	List of IB currencies: https://www.interactivebrokers.com/en/?f=%2Fen%2Ftrading%2Fexchanges.php%3Fexch%3Dibfxpro%26amp%3Bshowcategories%3D%26amp%3Bib_entity%3Dllc#
+	Sample code to request data: http://www.elitetrader.com/et/index.php?threads/request-ib-tick-data-java-api.206254/
+	Sample code: http://stackoverflow.com/questions/10777885/error-getting-the-eur-usd-historical-data-using-r-on-ibrokers
+	
+	Symbol: USD
+	Security Type: CASH
+	Exchange: IDEALPRO
+	Primary Exchange: IDEALPRO
+	Currency: JPY
+	End Date/Time: 20150326 07:46:46 GMT
+	Duration: 1 D, another eg could be 14400 S
+	Bar Size Setting: 1 min
+	What to Show: BID/ASK
+	Regular Trading Hours: 1
+	Date Format Style: 1
+	
+	Data files are generated in desired path in reverse chronological order eg
+	1.txt => most recent data
+	2.txt => next most recent data
+	... etc
+	
+	
+*/
 class IBDownloadHistoricalData  implements EWrapper {
 
     private EClientSocket   mClient = new EClientSocket( this);
@@ -28,17 +53,17 @@ class IBDownloadHistoricalData  implements EWrapper {
     private FileLog     mServerResponsesLog = new FileLog("ServerResponses.txt");
     private FileLog     mServerErrorsLog = new FileLog("ServerErrors.txt");
     
-	//change this to the desired path
-	private String 		mDataPath = "Data/CAD/";
-	//change this to the desired contract
+	//CHANGE this to the desired path
+	private String 		mDataPath = "Data/CAD/BID/";
+	//CHANGE this to the desired contract
 	private Contract mContract =  new Contract(0, "USD", "CASH", "",
                     0, "", "",
                     "IDEALPRO", "CAD", "", "",
                     new Vector<ComboLeg>(), "IDEALPRO", false,
                     "", "");
-	// change this between BID and ASK to get different fields
+	//CHANGE this between BID and ASK to get different fields
 	private String mRequestField = "BID";
-	// change this to tweak how long to wait for data to come in
+	//CHANGE this to tweak how long to wait for data to come in
 	private int mDataWaitTimeSeconds = 60; 
 	
 	private boolean mIsThisRequestFinished = false;
@@ -63,6 +88,7 @@ class IBDownloadHistoricalData  implements EWrapper {
 		return date1DayBefore;
 	}
 	
+	//CHANGE this to the first download date, which depends on how much data access you have in your IB account
 	private Date getFirstDownloadDate() {
 		Calendar cal = Calendar.getInstance();
 		cal.set(2007, 6, 1, 0, 0);
@@ -95,10 +121,11 @@ class IBDownloadHistoricalData  implements EWrapper {
 					break;
 				}
 			}
+			mDataFile.close();
 			
 			if (!mIsThisRequestFinished) {
 				System.out.println ("Failed to finish current request " + mCurrRequestDateTime);
-				//TODO delete the latest file so we can try again
+				mDataFile.delete();
 			}
 			
 			if (firstDownloadDateSeconds > mCurrRequestDateTime.getTime()) {
@@ -138,17 +165,19 @@ class IBDownloadHistoricalData  implements EWrapper {
     }
 
     void requestHistoricalData() {
-		//TODO if file is not there, use current datetime
-	
 		File latestFile = lastFileModified(mDataPath);
-		mCurrRequestDateTime = getFirstDateTime(latestFile);
+		int num = 0;
+		if (latestFile != null) {
+			mCurrRequestDateTime = getFirstDateTime(latestFile);
 		
-		String latestFilePath = latestFile.toString();
-		String latestFileName = latestFile.getName();
-		
-		int index = latestFileName.indexOf(".");
-		String fileNameSubstring = latestFileName.substring(0, index);
-		int num = Integer.parseInt(fileNameSubstring);
+			String latestFileName = latestFile.getName();
+			
+			int index = latestFileName.indexOf(".");
+			String fileNameSubstring = latestFileName.substring(0, index);
+			num = Integer.parseInt(fileNameSubstring);
+		} else {
+			mCurrRequestDateTime = getLatestDownloadDate();
+		}
 
 		mDataFile = new FileLog(mDataPath + String.format("%d.txt", num+1));
 		
@@ -157,7 +186,7 @@ class IBDownloadHistoricalData  implements EWrapper {
 		
 		System.out.println(String.format("Send Historical Data Request For contract=%s requestDateTimeStr=%s requestField=%s", mContract.m_currency, requestDateTimeStr, mRequestField));
 		mClient.reqHistoricalData( 0, mContract,
-									requestDateTimeStr, "14400 S",
+									requestDateTimeStr, "14400 S", //request in 4 hrs blocks
                                     "1 min", mRequestField,
                                     1, 1);
 											
@@ -280,6 +309,7 @@ class IBDownloadHistoricalData  implements EWrapper {
         // received next valid order id
     	String msg = EWrapperMsgGenerator.nextValidId( orderId);
         mServerResponsesLog.add(msg) ;
+		mServerResponsesLog.flush();
     }
 
     public void error(Exception ex) {
@@ -288,11 +318,13 @@ class IBDownloadHistoricalData  implements EWrapper {
     public void error( String str) {
     	String msg = AnyWrapperMsgGenerator.error(str);
         mServerErrorsLog.add( msg);
+		mServerErrorsLog.flush();
     }
 
     public void error( int id, int errorCode, String errorMsg) {
     	String msg = AnyWrapperMsgGenerator.error(id, errorCode, errorMsg);
         mServerErrorsLog.add( msg);
+		mServerErrorsLog.flush();
     }
 
     public void connectionClosed() {
@@ -389,6 +421,20 @@ class IBDownloadHistoricalData  implements EWrapper {
 		public void close() {
 			writer.flush();
 			writer.close();
+		}
+		
+		public void flush() {
+			writer.flush();
+		}
+		
+		public void delete() {
+			try {
+				File file = new File(mFilePath);
+				file.delete();
+			} catch (Exception e) {
+				System.err.println("Failed to delete file: " + mFilePath);
+			}
+			
 		}
 	}
 }
