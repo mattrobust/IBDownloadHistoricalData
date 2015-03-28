@@ -1,0 +1,45 @@
+List of pairs
+https://www.interactivebrokers.com/en/?f=%2Fen%2Ftrading%2Fexchanges.php%3Fexch%3Dibfxpro%26amp%3Bshowcategories%3D%26amp%3Bib_entity%3Dllc
+http://support.linnsoft.com/entries/22063421-How-are-Forex-symbols-setup-for-the-Interactive-Brokers-data-source-
+
+Sample code:
+http://www.elitetrader.com/et/index.php?threads/request-ib-tick-data-java-api.206254/
+
+http://stackoverflow.com/questions/10777885/error-getting-the-eur-usd-historical-data-using-r-on-ibrokers
+aSK FOR BID isntead of TRADES
+
+https://www.interactivebrokers.com/en/software/api/apiguide/tables/historical_data_limitations.htm
+
+Symbol: USD
+Security Type: CASH
+Exchange: IDEALPRO
+Primary Exchange: IDEALPRO
+Currency: JPY
+
+End Date/Time: 20150326 07:46:46 GMT
+Duration: 1 D
+Bar Size Setting: 1 min
+What to Show: BID/ASK
+Regular Trading Hours: 1
+Date Format Style: 1
+
+===
+GitHub
+https://guides.github.com/activities/hello-world/
+
+One to download into separate files
+One to combine
+
+===
+Later also support saving live data
+
+===
+Actual:
+Sat ends 0500
+mon starts 0515
+
+Can do 1 request every 20 seconds
+Request backwards
+Keep creating new file with new number
+Read first to decide next one to do
+
