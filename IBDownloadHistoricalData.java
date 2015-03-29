@@ -54,11 +54,11 @@ class IBDownloadHistoricalData  implements EWrapper {
     private FileLog     mServerErrorsLog = new FileLog("ServerErrors.txt");
     
 	//CHANGE this to the desired path
-	private String 		mDataPath = "Data/CAD/BID/";
+	private String 		mDataPath = "Data/JPY/BID/";
 	//CHANGE this to the desired contract
 	private Contract mContract =  new Contract(0, "USD", "CASH", "",
                     0, "", "",
-                    "IDEALPRO", "CAD", "", "",
+                    "IDEALPRO", "JPY", "", "",
                     new Vector<ComboLeg>(), "IDEALPRO", false,
                     "", "");
 	//CHANGE this between BID and ASK to get different fields

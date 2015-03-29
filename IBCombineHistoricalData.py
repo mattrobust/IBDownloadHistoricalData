@@ -27,8 +27,8 @@ def parseLine(line):
     return dateStr.strip(), priceStr.strip(), closePriceStr.strip()
 
 if __name__ == "__main__":
-    dataPath = "C:/Dropbox/CninSrc/JTS/TWS API/samples/Java/Data/CAD/BID/"
-    outFile = "C:/Dropbox/CninSrc/JTS/TWS API/samples/Java/Data/CAD_BID.txt"
+    dataPath = "C:/Dropbox/CninSrc/JTS/TWS API/samples/Java/Data/CAD/ASK/"
+    outFile = "C:/Dropbox/CninSrc/JTS/TWS API/samples/Java/Data/CAD_ASK.txt"
 
     files = os.listdir(dataPath)
     files.sort(key=tokenize) #this allows files to be sorted in natural order eg 1.txt, 2.txt ... 10.txt instead of 1.txt 10.txt 2.txt etc
@@ -43,6 +43,8 @@ if __name__ == "__main__":
         lines = f.readlines()
         for line in lines:
             date, time, closePrice = parseLine(line)
-            out.write(date + ", " + time + ", " + closePrice + "\n")
+            time = time.replace(":", "")
+            datetime = str(long(date + time))
+            out.write(datetime + ", " + closePrice + "\n")
 
     out.close()
